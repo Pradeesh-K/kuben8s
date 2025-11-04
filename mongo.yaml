@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongo-deployment
+  labels: # labels can have any key value pair but it is common to use app: <app-name>
+    app: mongo
+spec:
+  replicas: 1 # how many pods we want to create using this blueprint
+  selector:   # which pod belongs to which deployment ? all pods that match this label belong to the specific deployment
+    matchLabels:
+      app: mongo
+  template:     # the template is the template for pod with its own metadata and specs
+    metadata:
+      labels:
+        app: mongo  # we can label anything, additional identifiers. pods can have diff names , but we can use labels the pod share to identify them
+    spec:
+      containers:   # the containers the pod will have
+      - name: mongodb # name of container
+        image: mongo:5.0
+        ports:
+        - containerPort: 27017  # standard mongodb port
+        env:                    # this helps webapp connect to mongo
+        - name: MONGO_INITDB_ROOT_USERNAME  # the env variable for the docker container mongo expects
+          valueFrom:
+            secretKeyRef:     
+              name: mongo-secret      # K8s finds this name from metadata of secret
+              key: mongo-user
+        - name: MONGO_INITDB_ROOT_PASSWORD  # the env variable for the docker container mongo expects
+          valueFrom:
+            secretKeyRef:     
+              name: mongo-secret      # K8s finds this name from metadata of secret
+              key: mongo-password 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo-service   # this is the end point used to access mongo and we referenced this in mongo-config.yaml data: mongo-url: mongo-service       
+spec:
+  selector:             # selector selects pods to forward the requests to. this should match the pods under the template.
+    app: mongo    
+  ports:
+    - protocol: TCP     
+      port: 27017        # end port
+      targetPort: 27017  # port of the pods, this should be same as container pods
+
+# Request -> Mongo Service [port:8080] -> Pod [port:27017], we keep the service and pod port same for simplicity

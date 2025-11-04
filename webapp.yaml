@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-deployment
+  labels: # labels can have any key value pair but it is common to use app: <app-name>
+    app: webapp
+spec:
+  replicas: 1 # how many pods we want to create using this blueprint
+  selector: # which pod belongs to which deployment ? all pods that match this label belong to the specific deployment
+    matchLabels:
+      app: webapp
+  template: # the template is the template for pod with its own metadata and specs
+    metadata:
+      labels:
+        app: webapp # we can label anything, additional identifiers. pods can have diff names , but we can use labels the pod share to identify them
+    spec:
+      containers: # the containers the pod will have
+        - name: webapp # name of container
+          image: nanajanashia/k8s-demo-app:v1.0
+          ports:
+            - containerPort: 3000 # standard mongodb port
+          env: # this helps webapp connect to mongo
+            - name: USER_NAME # the env variable for the docker container mongo expects
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret # reuse the secret config. advantage of secret configs, we can refer multiple applications
+                  key: mongo-user
+            - name: USER_PWD
+              valueFrom:
+                secretKeyRef:
+                  name: mongo-secret
+                  key: mongo-password
+            - name: DB_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: mongo-config
+                  key: mongo-url
+
+---
+## Making accesible from the browser
+apiVersion: v1
+kind: Service
+metadata:
+  name: webapp-service # this is the end point used to access mongo and we referenced this in mongo-config.yaml data: mongo-url: mongo-service
+spec:
+  type: NodePort # external service type
+  selector: # selector selects pods to forward the requests to. this should match the pods under the template.
+    app: webapp
+  ports:
+    - protocol: TCP
+      port: 3000 # end port
+      targetPort: 3000 # port of the pods, this should be same as container pods
+      nodePort: 30100 # exposes the Service on each Nodes IP at a static port. it should be 30000- 32767 
+
+# Request -> Mongo Service [port:8080] -> Pod [port:27017], we keep the service and pod port same for simplicity
