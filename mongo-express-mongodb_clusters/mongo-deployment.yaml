@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb-deployment
+  labels:
+    app: mongodb # Label the Deployment itself for filtering/management
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb  # Only manage Pods that have these labels.
+  template:
+    metadata:
+      labels:
+        app: mongodb # Label is applied to the Pods newly created by this Deployment
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:5.0
+        ports:
+        - containerPort: 27017  # standard ports
+        env:      # we shoudnt write username and password as it will be checked to git
+        - name: MONGO_INITDB_ROOT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secret  # the name mentioned in metadata of secret
+              key: mongo-root-username  # the fieldname
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secret # the name mentioned in metadata of secret
+              key: mongo-root-password # the fieldname
+--- # document seperation
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongodb-service   # refer this name in other locations 
+spec:
+  selector:             
+    app: mongodb            # this should match deployment , as deployment creates pods with certain label
+  ports:
+    - protocol: TCP     
+      port: 27017        # which port this service is accessible
+      targetPort: 27017  # this should match containerport of the pod
+
+          
